@@ -3,7 +3,7 @@ import './style.css';
 const ANSWER      = 'DEBIT';
 const MAX_GUESSES = 6;
 const WORD_LENGTH = 5;
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyYBhIo7ZPV3OEYHzyGvl-Bs2MO6CNBhR50LchoXue1TATap1LBPGralAWHxR5Y6H7f/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx3G9UJcEqI7CEOuycRIX8xSYOhUMQKk0K8720gP1rNuoxg1hNnPmY8wsSphw1JU72I/exec';
 
 let playerEmail  = '';
 let currentRow   = 0;
@@ -190,18 +190,18 @@ function calcScore(att, won) {
   return won ? (MAX_GUESSES + 1 - att) * 100 : 0;
 }
 
-// ── Submit to Google Sheets ───────────────────────────────────
+// ── Submit to Google Sheets (via GET to avoid CORS issues) ──
 async function submitScore(email, attempts, score, won) {
   try {
-    await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
-        email, attempts, score, won,
-        grid: resultGrid.join('\n'),
-        timestamp: new Date().toISOString()
-      })
+    const params = new URLSearchParams({
+      action: 'save',
+      email,
+      attempts,
+      score,
+      won,
+      grid: resultGrid.join(' | ')
     });
+    await fetch(`${APPS_SCRIPT_URL}?${params.toString()}`);
   } catch (e) {
     console.warn('Score submission failed:', e);
   }
