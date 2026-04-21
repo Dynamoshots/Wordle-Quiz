@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wordle by PineLabs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:         #111113;
+      --surface:    #1c1c1f;
+      --surface2:   #242428;
+      --border:     #2e2e33;
+      --border2:    #3a3a40;
+      --text:       #f0f0f2;
+      --text-mid:   #9090a0;
+      --text-dim:   #55555f;
+
+      /* Pine Labs green — used sparingly */
+      --pine:       #003522;
+      --pine-accent:#00a85a;
+      --pine-soft:  rgba(0,168,90,0.12);
+      --pine-glow:  rgba(0,168,90,0.22);
+
+      /* Game states — neutral palette, green only for correct */
+      --correct-bg:   #1a2e20;
+      --correct-bd:   #2d6b42;
+      --correct-text: #6fcf8a;
+      --present-bg:   #2e2a18;
+      --present-bd:   #7a6520;
+      --present-text: #d4a843;
+      --absent-bg:    #191919;
+      --absent-bd:    #222;
+      --absent-text:  #3a3a42;
+
+      --tile-size: 62px;
+      --tile-gap:  6px;
+      --radius:    6px;
+    }
+
+    * { box-sizing:border-box; margin:0; padding:0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Sora', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* Very subtle noise texture */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* ── Header ──────────────────────────────────────────────── */
+    header {
+      width: 100%;
+      max-width: 520px;
+      padding: 28px 24px 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .game-title {
+      font-size: 1.45rem;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .game-subtitle {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.62rem;
+      color: var(--text-dim);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .header-logo {
+      height: 28px;
+      object-fit: contain;
+      opacity: 0.9;
+    }
+
+    /* Pine Labs green accent line under header */
+    .accent-line {
+      height: 2px;
+      background: linear-gradient(90deg, var(--pine-accent) 0%, transparent 60%);
+      opacity: 0.5;
+    }
+
+    /* ── Toast ───────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      top: 82px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-8px);
+      background: var(--text);
+      color: var(--bg);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 9px 20px;
+      border-radius: 20px;
+      opacity: 0;
+      transition: opacity 0.18s, transform 0.18s;
+      pointer-events: none;
+      z-index: 100;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    #toast.error {
+      background: #2a1010;
+      color: #f28b82;
+      border: 1px solid #6b2020;
+      border-radius: 8px;
+      padding: 11px 18px;
+      font-size: 0.8rem;
+    }
+
+    @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ── Email Gate ──────────────────────────────────────────── */
+    #email-gate {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 20px;
+      width: 100%;
+      max-width: 420px;
+      animation: fadeUp 0.4s ease;
+    }
+
+    .gate-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 36px 30px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .gate-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .gate-logo { height: 24px; opacity: 0.85; }
+
+    .gate-divider {
+      width: 32px;
+      height: 1px;
+      background: var(--border2);
+    }
+
+    .gate-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text);
+      text-align: center;
+    }
+
+    .gate-sub {
+      font-size: 0.83rem;
+      color: var(--text-mid);
+      text-align: center;
+      line-height: 1.65;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 7px; }
+
+    .field-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .email-input {
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      color: var(--text);
+      font-family: 'Sora', sans-serif;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100%;
+    }
+    .email-input:focus {
+      border-color: var(--pine-accent);
+      box-shadow: 0 0 0 3px var(--pine-soft);
+    }
+    .email-input::placeholder { color: var(--text-dim); }
+
+    .field-error {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: #e07070;
+      min-height: 16px;
+    }
+
+    .start-btn {
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      border-radius: var(--radius);
+      padding: 13px;
+      font-family: 'Sora', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.08s;
+      width: 100%;
+      letter-spacing: 0.01em;
+    }
+    .start-btn:hover  { opacity: 0.88; }
+    .start-btn:active { transform: scale(0.97); }
+    .start-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* Pine Labs green hint on the card bottom border */
+    .gate-card { border-bottom: 2px solid var(--pine-accent); }
+
+    /* ── Already Played ──────────────────────────────────────── */
+    #already-played {
+      display: none;
+      position: relative;
+      z-index: 1;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 48px 24px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      animation: fadeUp 0.4s ease;
+    }
+    #already-played.show { display:flex; }
+    .ap-icon  { font-size: 2.4rem; }
+    .ap-title { font-size: 1.4rem; font-weight: 600; color: var(--text); }
+    .ap-msg   { font-size: 0.85rem; color: var(--text-mid); line-height: 1.8; max-width: 280px; }
+    .ap-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--pine-accent);
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.73rem;
+      color: var(--pine-accent);
+      letter-spacing: 0.06em;
+    }
+
+    /* ── Game ────────────────────────────────────────────────── */
+    #game-wrap {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 20px 20px 36px;
+      width: 100%;
+      position: relative;
+      z-index: 1;
+      animation: fadeUp 0.4s ease;
+    }
+    #game-wrap.show { display: flex; }
+
+    /* Board */
+    #board { display:grid; grid-template-rows:repeat(6,var(--tile-size)); gap:var(--tile-gap)); }
+    #board { display:grid; grid-template-rows:repeat(6,var(--tile-size)); gap:var(--tile-gap); }
+    .row   { display:grid; grid-template-columns:repeat(5,var(--tile-size)); gap:var(--tile-gap); }
+
+    .tile {
+      width: var(--tile-size);
+      height: var(--tile-size);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.45rem;
+      font-weight: 500;
+      color: var(--text);
+      text-transform: uppercase;
+      border-radius: 4px;
+    }
+
+    .tile.filled { border-color: var(--border2); animation: pop 0.1s ease; }
+    .tile.shake  { animation: shake 0.4s ease; }
+    .tile.flip   { animation: flip 0.5s ease forwards; }
+    .tile.bounce { animation: bounce 0.55s ease forwards; }
+
+    @keyframes pop    { 0%{transform:scale(1)} 50%{transform:scale(1.1)} 100%{transform:scale(1)} }
+    @keyframes shake  { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 40%{transform:translateX(5px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(3px)} }
+    @keyframes flip   { 0%{transform:rotateX(0)} 49%{transform:rotateX(90deg)} 50%{transform:rotateX(90deg)} 100%{transform:rotateX(0)} }
+    @keyframes bounce { 0%,100%{transform:translateY(0)} 40%{transform:translateY(-16px)} 65%{transform:translateY(-7px)} }
+
+    /* Only correct = pine green. Present = amber. Absent = very dark. */
+    .tile[data-state="correct"] { background:var(--correct-bg); border-color:var(--correct-bd); color:var(--correct-text); }
+    .tile[data-state="present"] { background:var(--present-bg); border-color:var(--present-bd); color:var(--present-text); }
+    .tile[data-state="absent"]  { background:var(--absent-bg);  border-color:var(--absent-bd);  color:var(--absent-text); }
+
+    /* Keyboard */
+    #keyboard { display:flex; flex-direction:column; gap:6px; align-items:center; }
+    .kb-row   { display:flex; gap:5px; }
+
+    .key {
+      height: 50px;
+      min-width: 36px;
+      padding: 0 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 400;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.12s, border-color 0.12s, transform 0.07s;
+      user-select: none;
+      letter-spacing: 0.04em;
+    }
+    .key:hover  { background: #2a2a2e; }
+    .key:active { transform: scale(0.91); }
+    .key.wide   { min-width: 56px; font-size: 0.68rem; }
+
+    .key[data-state="correct"] { background:var(--correct-bg); border-color:var(--correct-bd); color:var(--correct-text); }
+    .key[data-state="present"] { background:var(--present-bg); border-color:var(--present-bd); color:var(--present-text); }
+    .key[data-state="absent"]  { background:#141414; border-color:#1a1a1a; color:#2e2e36; }
+
+    /* Result Panel */
+    #result-panel {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 28px;
+      text-align: center;
+      max-width: 360px;
+      width: 100%;
+      border-bottom: 2px solid var(--pine-accent);
+    }
+    #result-panel.show { display: flex; }
+
+    .result-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .result-word {
+      font-size: 2.4rem;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: 0.15em;
+    }
+    .result-msg {
+      font-size: 0.85rem;
+      color: var(--text-mid);
+      line-height: 1.6;
+    }
+    .score-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--correct-bg);
+      border: 1px solid var(--correct-bd);
+      border-radius: 20px;
+      padding: 5px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--correct-text);
+      letter-spacing: 0.06em;
+    }
+
+    /* The Overdrive message — one clear green accent */
+    .overdrive-msg {
+      width: 100%;
+      border: 1px solid var(--pine-accent);
+      border-radius: 8px;
+      padding: 13px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--pine-accent);
+      letter-spacing: 0.03em;
+      line-height: 1.65;
+      background: var(--pine-soft);
+    }
+
+    .share-btn {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 11px 26px;
+      font-family: 'Sora', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, transform 0.07s;
+      letter-spacing: 0.01em;
+    }
+    .share-btn:hover  { border-color: var(--text-mid); background: var(--surface2); }
+    .share-btn:active { transform: scale(0.96); }
+
+    /* Footer */
+    footer {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 28px;
+      opacity: 0.4;
+    }
+    .footer-dot {
+      width: 3px; height: 3px;
+      background: var(--pine-accent);
+      border-radius: 50%;
+    }
+    footer span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div class="header-left">
+        <div class="game-title">Wordle</div>
+        <div class="game-subtitle">Overdrive Edition</div>
+      </div>
+      <img class="header-logo" src="data:image/png;base64,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" alt="Pine Labs" />
+    </div>
+    <div class="accent-line"></div>
+  </header>
+
+  <div id="toast"></div>
+
+  <!-- Email Gate -->
+  <div id="email-gate">
+    <div class="gate-card">
+      <div class="gate-header">
+        <img class="gate-logo" src="data:image/png;base64,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" alt="Pine Labs" />
+        <div class="gate-divider"></div>
+        <div class="gate-title">Welcome &#x1F44B;</div>
+        <div class="gate-sub">Guess the 5-letter word in 6 tries.<br/>Enter your work email to get started.</div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="email-input">Work Email</label>
+        <input class="email-input" type="email" id="email-input" placeholder="you@pinelabs.com" autocomplete="email" />
+        <div class="field-error" id="email-error"></div>
+      </div>
+      <button class="start-btn" id="start-btn" onclick="handleEmailSubmit()">Start Playing</button>
+    </div>
+  </div>
+
+  <!-- Already Played -->
+  <div id="already-played">
+    <div class="ap-icon">&#x1F512;</div>
+    <div class="ap-title">Already Played</div>
+    <div class="ap-msg">You have already submitted a score for this round.</div>
+    <div class="ap-badge">&#x2705;&nbsp; Score updated to Overdrive</div>
+  </div>
+
+  <!-- Game -->
+  <div id="game-wrap">
+    <div id="board"></div>
+    <div id="keyboard"></div>
+    <div id="result-panel">
+      <div class="result-eyebrow" id="result-eyebrow">The word was</div>
+      <div class="result-word">DEBIT</div>
+      <div class="score-pill" id="score-pill">Score &mdash;</div>
+      <div class="result-msg" id="result-msg"></div>
+      <div class="overdrive-msg">&#x2705;&nbsp; Your score has been captured and updated to <strong>Overdrive score</strong></div>
+      <button class="share-btn" onclick="shareResult()">Share result &nbsp;&#x1F4CB;</button>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-dot"></div>
+    <span>Pine Labs Overdrive</span>
+    <div class="footer-dot"></div>
+  </footer>
+
+  <script>
+    const ANSWER      = 'DEBIT';
+    const MAX_GUESSES = 6;
+    const WORD_LENGTH = 5;
+    const APPS_SCRIPT_URL = 'YOUR_APPS_SCRIPT_URL_HERE';
+
+    let playerEmail  = '';
+    let currentRow   = 0;
+    let currentCol   = 0;
+    let currentGuess = [];
+    let gameOver     = false;
+    let resultGrid   = [];
+
+    document.getElementById('email-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleEmailSubmit();
+    });
+
+    async function handleEmailSubmit() {
+      const input = document.getElementById('email-input');
+      const errEl = document.getElementById('email-error');
+      const btn   = document.getElementById('start-btn');
+      const email = input.value.trim().toLowerCase();
+      errEl.textContent = '';
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        errEl.textContent = 'Please enter a valid email address.';
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Checking...';
+      try {
+        const res  = await fetch(APPS_SCRIPT_URL + '?action=check&email=' + encodeURIComponent(email));
+        const data = await res.json();
+        if (data.played) {
+          document.getElementById('email-gate').style.display = 'none';
+          document.getElementById('already-played').classList.add('show');
+          return;
+        }
+      } catch (e) { console.warn('Apps Script unreachable, proceeding.'); }
+      playerEmail = email;
+      document.getElementById('email-gate').style.display = 'none';
+      document.getElementById('game-wrap').classList.add('show');
+      btn.disabled    = false;
+      btn.textContent = 'Start Playing';
+    }
+
+    const boardEl = document.getElementById('board');
+    for (let r = 0; r < MAX_GUESSES; r++) {
+      const row = document.createElement('div');
+      row.classList.add('row'); row.id = 'row-' + r;
+      for (let c = 0; c < WORD_LENGTH; c++) {
+        const tile = document.createElement('div');
+        tile.classList.add('tile'); tile.id = 'tile-' + r + '-' + c;
+        row.appendChild(tile);
+      }
+      boardEl.appendChild(row);
+    }
+
+    const keyRows = [['Q','W','E','R','T','Y','U','I','O','P'],['A','S','D','F','G','H','J','K','L'],['ENTER','Z','X','C','V','B','N','M','<']];
+    const kbEl = document.getElementById('keyboard');
+    keyRows.forEach(keys => {
+      const row = document.createElement('div'); row.classList.add('kb-row');
+      keys.forEach(k => {
+        const btn = document.createElement('button'); btn.classList.add('key');
+        if (k === 'ENTER' || k === '<') btn.classList.add('wide');
+        btn.textContent = k === '<' ? '\u232B' : k;
+        btn.dataset.key = k === '<' ? '\u232B' : k;
+        btn.addEventListener('click', () => handleKey(k === '<' ? '\u232B' : k));
+        row.appendChild(btn);
+      });
+      kbEl.appendChild(row);
+    });
+
+    document.addEventListener('keydown', e => {
+      if (!document.getElementById('game-wrap').classList.contains('show')) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'Enter') handleKey('ENTER');
+      else if (e.key === 'Backspace') handleKey('\u232B');
+      else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toUpperCase());
+    });
+
+    function handleKey(key) {
+      if (gameOver) return;
+      if (key === '\u232B') deleteLetter();
+      else if (key === 'ENTER') submitGuess();
+      else if (/^[A-Z]$/.test(key) && currentCol < WORD_LENGTH) addLetter(key);
+    }
+
+    function addLetter(letter) {
+      if (currentCol >= WORD_LENGTH) return;
+      const tile = getTile(currentRow, currentCol);
+      tile.textContent = letter;
+      tile.classList.add('filled'); tile.classList.remove('shake'); void tile.offsetWidth;
+      currentGuess.push(letter); currentCol++;
+    }
+
+    function deleteLetter() {
+      if (currentCol === 0) return;
+      currentCol--; currentGuess.pop();
+      const tile = getTile(currentRow, currentCol);
+      tile.textContent = ''; tile.classList.remove('filled');
+    }
+
+    const dictCache = new Map();
+    async function isValidWord(word) {
+      const lower = word.toLowerCase();
+      if (dictCache.has(lower)) return dictCache.get(lower);
+      try {
+        const res = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + lower);
+        const valid = res.ok; dictCache.set(lower, valid); return valid;
+      } catch { return true; }
+    }
+
+    async function submitGuess() {
+      if (currentCol < WORD_LENGTH) { shakeRow(currentRow); showToast('Not enough letters'); return; }
+      const guess = currentGuess.join('');
+      showToast('Checking\u2026');
+      const valid = await isValidWord(guess);
+      if (!valid) { shakeRow(currentRow); showToast('\u26A0\uFE0F  Not a dictionary word!', 'error'); return; }
+
+      const result    = evaluateGuess(guess);
+      const rowEmojis = result.map(s => s==='correct'?'\u{1F7E9}':s==='present'?'\u{1F7E8}':'\u2B1B');
+      resultGrid.push(rowEmojis.join(''));
+
+      revealRow(currentRow, guess, result, async () => {
+        updateKeyboard(guess, result);
+        const won = guess === ANSWER, last = currentRow === MAX_GUESSES - 1;
+        if (won) {
+          gameOver = true; bounceTiles(currentRow);
+          const msgs  = ['Genius! \u{1F3C6}','Magnificent! \u2728','Impressive! \u{1F3AF}','Splendid! \u{1F4A1}','Great! \u{1F44F}','Phew! \u{1F605}'];
+          const score = calcScore(currentRow + 1, true);
+          await submitScore(playerEmail, currentRow + 1, score, true);
+          setTimeout(() => showResult(true, msgs[currentRow], currentRow + 1, score), 600);
+        } else if (last) {
+          gameOver = true;
+          const score = 0;
+          await submitScore(playerEmail, MAX_GUESSES, score, false);
+          setTimeout(() => showResult(false, '', MAX_GUESSES, score), 600);
+        }
+        currentRow++; currentCol = 0; currentGuess = [];
+      });
+    }
+
+    function calcScore(att, won) { return won ? (MAX_GUESSES + 1 - att) * 100 : 0; }
+
+    async function submitScore(email, attempts, score, won) {
+      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL_HERE') return;
+      try {
+        await fetch(APPS_SCRIPT_URL, {
+          method:'POST', headers:{'Content-Type':'text/plain'},
+          body: JSON.stringify({ email, attempts, score, won, grid: resultGrid.join('\n'), timestamp: new Date().toISOString() })
+        });
+      } catch(e) { console.warn('Score submission failed:', e); }
+    }
+
+    function evaluateGuess(guess) {
+      const result = Array(WORD_LENGTH).fill('absent');
+      const aArr = ANSWER.split(''), gArr = guess.split(''), used = Array(WORD_LENGTH).fill(false);
+      gArr.forEach((l,i) => { if (l===aArr[i]) { result[i]='correct'; used[i]=true; } });
+      gArr.forEach((l,i) => {
+        if (result[i]==='correct') return;
+        const j = aArr.findIndex((a,idx) => a===l && !used[idx]);
+        if (j!==-1) { result[i]='present'; used[j]=true; }
+      });
+      return result;
+    }
+
+    function revealRow(row, guess, result, callback) {
+      const delay = 300;
+      result.forEach((state, i) => {
+        const tile = getTile(row, i);
+        setTimeout(() => { tile.classList.add('flip'); setTimeout(() => { tile.dataset.state = state; }, 250); }, i * delay);
+      });
+      setTimeout(callback, WORD_LENGTH * delay + 300);
+    }
+
+    function updateKeyboard(guess, result) {
+      const p = {correct:3,present:2,absent:1};
+      guess.split('').forEach((l,i) => {
+        const btn = document.querySelector('.key[data-key="'+l+'"]');
+        if (!btn) return;
+        const cur = btn.dataset.state;
+        if (!cur || p[result[i]] > p[cur]) btn.dataset.state = result[i];
+      });
+    }
+
+    function shakeRow(row) {
+      document.getElementById('row-'+row).querySelectorAll('.tile').forEach(t => {
+        t.classList.remove('shake'); void t.offsetWidth; t.classList.add('shake');
+      });
+    }
+    function bounceTiles(row) {
+      document.getElementById('row-'+row).querySelectorAll('.tile').forEach((t,i) => {
+        setTimeout(() => t.classList.add('bounce'), i*80);
+      });
+    }
+    function getTile(r,c) { return document.getElementById('tile-'+r+'-'+c); }
+
+    let toastTimer;
+    function showToast(msg, type) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.remove('error');
+      if (type === 'error') el.classList.add('error');
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      const duration = type === 'error' ? 2800 : 1600;
+      toastTimer = setTimeout(() => { el.classList.remove('show', 'error'); }, duration);
+    }
+
+    function showResult(won, msg, attempts, score) {
+      document.getElementById('result-eyebrow').textContent = won ? '\u{1F389} You got it!' : 'The word was';
+      document.getElementById('score-pill').textContent     = won ? '\u2B50 ' + score + ' pts' : '\u274C 0 pts';
+      document.getElementById('result-msg').textContent     = won
+        ? msg + ' Solved in ' + attempts + (attempts===1?' guess':' guesses') + '.'
+        : 'Better luck next time! The answer was DEBIT.';
+      document.getElementById('result-panel').classList.add('show');
+    }
+
+    function shareResult() {
+      const lines = ['Wordle · Pine Labs Overdrive', currentRow+'/6', '', ...resultGrid].join('\n');
+      if (navigator.clipboard) navigator.clipboard.writeText(lines).then(() => showToast('Copied!'));
+    }
+  </script>
+</body>
+</html>
