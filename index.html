@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wordle by PineLabs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div class="header-left">
+        <div class="game-title">Wordle</div>
+        <div class="game-subtitle">Overdrive Edition</div>
+      </div>
+      <img class="header-logo" src="/logo.png" alt="Pine Labs" />
+    </div>
+    <div class="accent-line"></div>
+  </header>
+
+  <div id="toast"></div>
+
+  <!-- Email Gate -->
+  <div id="email-gate">
+    <div class="gate-card">
+      <div class="gate-header">
+        <img class="gate-logo" src="/logo.png" alt="Pine Labs" />
+        <div class="gate-divider"></div>
+        <div class="gate-title">Welcome 👋</div>
+        <div class="gate-sub">Guess the 5-letter word in 6 tries.<br/>Enter your work email to get started.</div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="email-input">Work Email</label>
+        <input class="email-input" type="email" id="email-input" placeholder="you@pinelabs.com" autocomplete="email" />
+        <div class="field-error" id="email-error"></div>
+      </div>
+      <button class="start-btn" id="start-btn">Start Playing</button>
+    </div>
+  </div>
+
+  <!-- Already Played -->
+  <div id="already-played">
+    <div class="ap-icon">🔒</div>
+    <div class="ap-title">Already Played</div>
+    <div class="ap-msg">You have already submitted a score for this round.</div>
+    <div class="ap-badge">✅ Score updated to Overdrive</div>
+  </div>
+
+  <!-- Game -->
+  <div id="game-wrap">
+    <div id="board"></div>
+    <div id="keyboard"></div>
+    <div id="result-panel">
+      <div class="result-eyebrow" id="result-eyebrow">The word was</div>
+      <div class="result-word">DEBIT</div>
+      <div class="score-pill" id="score-pill">Score —</div>
+      <div class="result-msg" id="result-msg"></div>
+      <div class="overdrive-msg">✅ Your score has been captured and updated to <strong>Overdrive score</strong></div>
+      <button class="share-btn" id="share-btn">Share result 📋</button>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-dot"></div>
+    <span>Pine Labs Overdrive</span>
+    <div class="footer-dot"></div>
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
