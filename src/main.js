@@ -3,7 +3,7 @@ import './style.css';
 const ANSWER      = 'DEBIT';
 const MAX_GUESSES = 6;
 const WORD_LENGTH = 5;
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx3G9UJcEqI7CEOuycRIX8xSYOhUMQKk0K8720gP1rNuoxg1hNnPmY8wsSphw1JU72I/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzLZcO7vqeSh9Czwtr6GHMByYRiWyw_bRhZtqoRW_RMUey05epFH77GH8rvzWkvrXWc/exec';
 
 let playerEmail  = '';
 let currentRow   = 0;
