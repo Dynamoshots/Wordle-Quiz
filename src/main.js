@@ -195,34 +195,25 @@ function calcScore(att, won) {
 }
 
 // ── Submit to Google Sheets ──────────────────────────────────
-// Uses Image beacon — guaranteed cross-origin, no CORS issues
-function submitScore(email, attempts, score, won) {
-  return new Promise((resolve) => {
+// Uses the exact same fetch pattern as email check (we know that works)
+async function submitScore(email, attempts, score, won) {
+  try {
     const params = new URLSearchParams({
-      action: 'save',
+      action:   'save',
       email:    email,
-      attempts: attempts,
-      score:    score,
-      won:      won,
+      attempts: String(attempts),
+      score:    String(score),
+      won:      String(won),
       grid:     resultGrid.join(' | ')
     });
-
     const url = `${APPS_SCRIPT_URL}?${params.toString()}`;
-
-    // Primary: Image beacon (bypasses CORS completely)
-    const img = new Image();
-    img.onload  = () => { console.log('Score saved ✅'); resolve(); };
-    img.onerror = () => {
-      // onerror still fires even on success (Apps Script returns JSON not an image)
-      // so this is actually fine — the request was made
-      console.log('Score request sent ✅');
-      resolve();
-    };
-    img.src = url;
-
-    // Timeout safety — resolve after 5s regardless
-    setTimeout(resolve, 5000);
-  });
+    console.log('Saving score to:', url);
+    const res  = await fetch(url);
+    const data = await res.json();
+    console.log('Save response:', data);
+  } catch (e) {
+    console.warn('Score save failed:', e.message);
+  }
 }
 
 // ── Evaluate Guess ───────────────────────────────────────────
