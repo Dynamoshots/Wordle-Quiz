@@ -34,7 +34,10 @@ async function handleEmailSubmit() {
   btn.textContent = 'Checking...';
 
   try {
-    const res  = await fetch(`${APPS_SCRIPT_URL}?action=check&email=${encodeURIComponent(email)}`);
+    const res  = await fetch(`${APPS_SCRIPT_URL}?action=check&email=${encodeURIComponent(email)}`, {
+      redirect: 'follow',
+      mode: 'cors'
+    });
     const data = await res.json();
     if (data.played) {
       document.getElementById('email-gate').style.display = 'none';
@@ -42,7 +45,8 @@ async function handleEmailSubmit() {
       return;
     }
   } catch (e) {
-    console.warn('Apps Script unreachable, proceeding.');
+    // If check fails, let them play (fail open)
+    console.warn('Check failed, proceeding:', e.message);
   }
 
   playerEmail = email;
@@ -190,21 +194,35 @@ function calcScore(att, won) {
   return won ? (MAX_GUESSES + 1 - att) * 100 : 0;
 }
 
-// ── Submit to Google Sheets (via GET to avoid CORS issues) ──
-async function submitScore(email, attempts, score, won) {
-  try {
+// ── Submit to Google Sheets ──────────────────────────────────
+// Uses Image beacon — guaranteed cross-origin, no CORS issues
+function submitScore(email, attempts, score, won) {
+  return new Promise((resolve) => {
     const params = new URLSearchParams({
       action: 'save',
-      email,
-      attempts,
-      score,
-      won,
-      grid: resultGrid.join(' | ')
+      email:    email,
+      attempts: attempts,
+      score:    score,
+      won:      won,
+      grid:     resultGrid.join(' | ')
     });
-    await fetch(`${APPS_SCRIPT_URL}?${params.toString()}`);
-  } catch (e) {
-    console.warn('Score submission failed:', e);
-  }
+
+    const url = `${APPS_SCRIPT_URL}?${params.toString()}`;
+
+    // Primary: Image beacon (bypasses CORS completely)
+    const img = new Image();
+    img.onload  = () => { console.log('Score saved ✅'); resolve(); };
+    img.onerror = () => {
+      // onerror still fires even on success (Apps Script returns JSON not an image)
+      // so this is actually fine — the request was made
+      console.log('Score request sent ✅');
+      resolve();
+    };
+    img.src = url;
+
+    // Timeout safety — resolve after 5s regardless
+    setTimeout(resolve, 5000);
+  });
 }
 
 // ── Evaluate Guess ───────────────────────────────────────────
