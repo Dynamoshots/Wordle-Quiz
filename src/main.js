@@ -193,7 +193,7 @@ async function submitGuess() {
 
 // ── Scoring ──────────────────────────────────────────────────
 function calcScore(att, won) {
-  return won ? (MAX_GUESSES + 1 - att) : 0;
+  return won ? (11 - att) : 0;
 }
 
 // ── Submit to Google Sheets ──────────────────────────────────
