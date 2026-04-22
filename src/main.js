@@ -173,10 +173,12 @@ async function submitGuess() {
     if (won) {
       gameOver = true;
       bounceTiles(currentRow);
-      const msgs  = ['Genius! 🏆', 'Magnificent! ✨', 'Impressive! 🎯', 'Splendid! 💡', 'Great! 👏', 'Phew! 😅'];
-      const score = calcScore(currentRow + 1, true);
-      await submitScore(playerEmail, currentRow + 1, score, true);
-      setTimeout(() => showResult(true, msgs[currentRow], currentRow + 1, score), 600);
+      const msgs       = ['Genius! 🏆', 'Magnificent! ✨', 'Impressive! 🎯', 'Splendid! 💡', 'Great! 👏', 'Phew! 😅'];
+      const attemptNum = currentRow + 1; // capture before currentRow++ runs
+      const winMsg     = msgs[currentRow];
+      const score      = calcScore(attemptNum, true);
+      await submitScore(playerEmail, attemptNum, score, true);
+      setTimeout(() => showResult(true, winMsg, attemptNum, score), 600);
     } else if (last) {
       gameOver = true;
       await submitScore(playerEmail, MAX_GUESSES, 0, false);
